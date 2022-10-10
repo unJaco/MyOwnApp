@@ -104,7 +104,8 @@ class _StartPageState extends State<StartPage> {
   Widget build(BuildContext context) {
     return isLoading
         ? const Center(child: CircularProgressIndicator())
-        : NestedScrollView(
+        : RefreshIndicator(child: NestedScrollView(
+            physics: const ScrollPhysics(),
             floatHeaderSlivers: true,
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
                   SliverAppBar(
@@ -141,17 +142,15 @@ class _StartPageState extends State<StartPage> {
                 ? const Center(
                     child: Text(
                         'Ziemlich leer hier...\nDie Posts von anderen werden hier gezeigt'))
-                : _buildBody());
+                : _buildBody()), onRefresh: _pullData);
   }
 
   Widget _buildBody() {
-    return RefreshIndicator(
-        onRefresh: _pullData,
-        child: SingleChildScrollView(child: Column(children: [
+    return SingleChildScrollView(child: Column(children: [
           const SizedBox(height: 10),
           const Divider(thickness: 1),
           _buildListview()
-        ])));
+        ]));
   }
 
   Widget _buildListview() {

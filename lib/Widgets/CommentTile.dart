@@ -16,12 +16,14 @@ class CommentTile extends StatefulWidget {
   const CommentTile(
       {Key? key,
       required this.postId,
+      required this.post,
       required this.uid,
       required this.parentId,
       required this.userOwnParent})
       : super(key: key);
 
   final String postId;
+  final Post post;
   final String uid;
   final String parentId;
   final bool userOwnParent;
@@ -34,9 +36,7 @@ class _CommentTileState extends State<CommentTile> {
   final firestore = FirebaseFirestore.instance;
   final firebaseStorage = FirebaseStorage.instance;
 
-  bool isLoading = true;
 
-  Post? nullablePost;
   late String uid;
 
   static bool selectionMode = false;
@@ -58,9 +58,9 @@ class _CommentTileState extends State<CommentTile> {
   void initState() {
     super.initState();
 
-    setUp(context);
+    //setUp(context);
   }
-
+/*
   void setUp(BuildContext context) async {
     profilePictures = context.read<ProfilePictureProvider>().profilePictures;
 
@@ -92,23 +92,16 @@ class _CommentTileState extends State<CommentTile> {
       isLoading = false;
     });
   }
-
+*/
   void deleteNonExistingPost() async {
 
     firestore.collection('Posts').doc(widget.parentId).update({'commentVal' : FieldValue.increment(-1), 'comments' : FieldValue.arrayRemove([widget.postId])});
   }
+
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return Container();
-    }
-    if(nullablePost == null) {
 
-      deleteNonExistingPost();
-      return Container();
-    }
-
-    Post post = nullablePost!;
+    Post post = widget.post;
     uid = widget.uid;
 
     Timestamp timeStamp = post.timestamp;
@@ -218,7 +211,6 @@ class _CommentTileState extends State<CommentTile> {
                 stream: commentStream,
                 builder: (ctx, snapshot) {
 
-                  print('stream');
                   if (snapshot.hasError) {
                     return const Text('Something went wrong');
                   }
@@ -246,7 +238,6 @@ class _CommentTileState extends State<CommentTile> {
                       icon: const Icon(Icons.mode_comment_outlined, size: 22),
                       color: Colors.blue,
                       onPressed: () {
-                        print(replies);
                         setState(() {
                           replyList = replies;
                         });
@@ -297,13 +288,20 @@ class _CommentTileState extends State<CommentTile> {
                             'likeVal': FieldValue.increment(-1),
                             'likedBy': FieldValue.arrayRemove([uid])
                           });
-                          post.likedBy.remove(uid);
+                          setState(() {
+                            post.likedBy.remove(uid);
+                          });
                         } else {
                           firestore.collection('Posts').doc(post.id).update({
                             'likeVal': FieldValue.increment(1),
                             'likedBy': FieldValue.arrayUnion([uid])
                           });
+
+                          setState(() {
+                            post.likedBy.add(widget.uid);
+                          });
                         }
+
                       },
                       splashRadius: 20,
                     ),

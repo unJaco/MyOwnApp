@@ -19,16 +19,16 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
   final formKey = GlobalKey<FormState>();
 
   final emailController = TextEditingController();
+  final oldController = TextEditingController();
 
   final passwordController = TextEditingController();
   bool isPasswordVisible = true;
-
-  final _firebaseAuth = FirebaseAuth.instance;
 
   @override
   void dispose() {
     passwordController.dispose();
     emailController.dispose();
+    oldController.dispose();
     super.dispose();
   }
 
@@ -59,15 +59,9 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
               Form(
                 key: formKey,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(25, 0, 25, 0),
-                  child: Column(
-                    children: [
-                      NewEmailTextField(),
-                      const SizedBox(height: 30),
-                      PasswordConfirmTextField(),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
+                  padding: const EdgeInsets.fromLTRB(25, 0, 25, 25),
+                  child:
+                      NewEmailTextField()
                 ),
               ),
               Padding(
@@ -114,12 +108,6 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
             state = ButtonState.loading;
           });
 
-          var credential = EmailAuthProvider.credential(
-              email: _firebaseAuth.currentUser!.email!,
-              password: passwordController.text);
-
-          _firebaseAuth.currentUser!.reauthenticateWithCredential(credential);
-
           String? res = await context
               .read<AuthenticationService>()
               .changeEmail(emailController.text);
@@ -134,9 +122,12 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
             Navigator.of(context)
                 .pushNamedAndRemoveUntil('/login', (route) => false);
           } else {
-            setState(() {
-              state = ButtonState.init;
-            });
+            state = ButtonState.init;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Falsches Passwort'),
+                    backgroundColor: Colors.red));
           }
         },
         child: const FittedBox(
@@ -166,6 +157,21 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
     );
   }
 
+  Widget OldEmailTextField() => TextFormField(
+        controller: oldController,
+        decoration: const InputDecoration(
+          labelText: "Alte Email",
+          hintStyle: TextStyle(fontSize: 15),
+        ),
+        validator: (value) {
+          if (value!.isEmpty) {
+            return 'Du musst eine E-Mail angeben';
+          } else {
+            return null;
+          }
+        },
+      );
+
   Widget NewEmailTextField() => TextFormField(
         controller: emailController,
         decoration: const InputDecoration(
@@ -173,13 +179,8 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
           hintStyle: TextStyle(fontSize: 15),
         ),
         validator: (value) {
-          const pattern = r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{6,}$';
-          final regExp = RegExp(pattern);
-
           if (value!.isEmpty) {
             return 'Du musst eine E-Mail angeben';
-          } else if (!regExp.hasMatch(value)) {
-            return 'Ungültiges Passwort - Mindestens 6 Zeichen,\neinen Großbuchstaben, einen Kleinbuchstaben und eine Zahl';
           } else {
             return null;
           }
@@ -203,13 +204,12 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
         ),
         validator: (value) {
           if (value!.isEmpty) {
-            return "Wiederhole dein Passwort";
-          } else if (value != passwordController.text) {
-            return 'Passwort ist nicht identisch';
+            return 'Bitte gib dein Passwort an';
           } else {
             return null;
           }
         },
+        controller: passwordController,
         obscureText: isPasswordVisible,
       );
 }

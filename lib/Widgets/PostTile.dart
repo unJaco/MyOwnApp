@@ -57,6 +57,12 @@ class _PostTileState extends State<PostTile> {
     setUp();
   }
 
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   void setUp() async {
 
     profilePictures = context.read<ProfilePictureProvider>().profilePictures;
@@ -233,13 +239,18 @@ class _PostTileState extends State<PostTile> {
                             'likeVal': FieldValue.increment(-1),
                             'likedBy': FieldValue.arrayRemove([uid])
                           });
-                          post.likedBy.remove(uid);
+                          setState(() {
+                            post.likedBy.remove(uid);
+                          });
+
                         } else {
                           firestore.collection('Posts').doc(post.id).update({
                             'likeVal': FieldValue.increment(1),
                             'likedBy': FieldValue.arrayUnion([uid])
                           });
-                          post.likedBy.add(uid);
+                          setState(() {
+                            post.likedBy.add(uid);
+                          });
                         }
                       }
                     },

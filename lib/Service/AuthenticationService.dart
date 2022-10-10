@@ -81,26 +81,28 @@ class AuthenticationService {
 
   Future<String?> deleteAccount() async {
     try {
+
       String uid = _firebaseAuth.currentUser!.uid;
 
-      _firestore.collection('User').doc(uid).delete();
+      var docRef = _firestore.collection('User').doc(uid);
 
+      late AppUser user;
+      docRef.get().then((userSnap) => user = AppUser.fromSnap(userSnap));
+      docRef.delete();
+
+      _firestore.collection('UserNames').doc(user.username).delete();
 
       _firestore.collection('PostsByUser').doc(uid).get().then((doc) {
-
         Map? data = doc.data();
         if(data != null) {
           List postId = data['postIds'];
-
           for (String id in postId) {
             _firestore.collection('Posts').doc(id).delete();
           }
         }
       });
 
-
       _firestore.collection('Follower').doc(uid).get().then((doc) async {
-
         Map? data = doc.data();
         if(data != null) {
           List gefolgt = data['gefolgt'];
@@ -119,7 +121,6 @@ class AuthenticationService {
           }
         }
       });
-
       _firestore.collection('PostsByUser').doc(uid).delete();
       _firestore.collection('Follower').doc(uid).delete();
 
@@ -142,7 +143,8 @@ class AuthenticationService {
 
   Future<String?> changeEmail(String email) async {
     try {
-      await _firebaseAuth.currentUser!.updateEmail(email);
+      await _firestore.collection('/User').doc(_firebaseAuth.currentUser!.uid).update({'email' : email});
+      await _firebaseAuth.currentUser?.updateEmail(email);
       return 'success';
     } on FirebaseException catch (e) {
       return e.message;

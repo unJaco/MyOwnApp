@@ -39,12 +39,14 @@ class _CommentsPageState extends State<CommentsPage> {
 
   final scrollController = ScrollController();
 
-  late List<dynamic> commentIdList;
+  //late List<dynamic> commentIdList;
   late int commentsVal;
 
   late String ownId;
 
   Map<String, Uint8List?> profilePictures = {};
+
+  Map<String, CommentTile> commentTiles = {};
 
   bool isLoading = true;
 
@@ -55,140 +57,232 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   void setUp(BuildContext context) async {
-
     ownId = widget.ownId;
-    commentIdList = widget.data['comments'];
+    //commentIdList = widget.data['comments'];
+    var commentList = widget.data['comments'];
+
+    for (String id in commentList) {
+      await firestore
+          .collection('Posts')
+          .doc(id)
+          .get()
+          .then((doc) async {
+        Post? p = Post.fromSnap(doc);
+        if (p != null) {
+          p.setId(doc.id);
+          if (profilePictures.keys.contains(p.authorUserName)) {
+            p.setProfilePicture(profilePictures[p.authorUserName]);
+          } else {
+            var list = await firebaseStorage
+                .ref('files/${p.authorUserName}')
+                .getData()
+                .onError((error, stackTrace) => null);
+            context
+                .read<ProfilePictureProvider>()
+                .addProfilePicture(p.authorUserName, list);
+            p.setProfilePicture(list);
+          }
+          commentTiles[id] = CommentTile(postId: id,
+              post: p,
+              uid: widget.uid,
+              parentId: widget.post.id,
+              userOwnParent: widget.post.authorUserName == context
+                  .read<UserProvider>()
+                  .user
+                  .username);
+
+        } else {
+          deleteNonExistingPost(id);
+        }
+      });
+    }
     commentsVal = widget.data['commentsVal'];
 
-    profilePictures = context.read<ProfilePictureProvider>().profilePictures;
+    profilePictures = context
+        .read<ProfilePictureProvider>()
+        .profilePictures;
 
     setState(() {
       isLoading = false;
     });
   }
 
-  Future<void> fetchPosts() async {
-    profilePictures = context.read<ProfilePictureProvider>().profilePictures;
-
-    firestore.collection('Posts').doc(widget.post.id).get().then((doc) {
-      var data = doc.data();
-      if (data != null) {
-        List newCommentIds = data['comments'];
-
-        commentIdList = newCommentIds;
-      }
+  void deleteNonExistingPost(String commId) async {
+    firestore.collection('Posts').doc(commId).update({
+      'commentVal': FieldValue.increment(-1),
+      'comments': FieldValue.arrayRemove([commId])
     });
   }
 
-  bool selected = false;
-  bool showCommentsofComments = false;
+  Future<void> fetchPosts() async {
+    profilePictures = context
+        .read<ProfilePictureProvider>()
+        .profilePictures;
 
-  @override
-  Widget build(BuildContext context) {
-    return isLoading
-        ? SafeArea(
-            child: Scaffold(
-                appBar: MyAppbar(
-                    deletePosts: (List<Post> value) {
-                      setState(() {});
-                    },
+    firestore.collection('Posts').doc(widget.post.id).get().then((doc) async {
+      var data = doc.data();
+      if (data != null) {
+        List newCommentIds = data['comments'];
+        for (String newId in newCommentIds) {
+          if (!commentTiles.keys.contains(newId)) {
+            await firestore
+                .collection('Posts')
+                .doc(newId)
+                .get()
+                .then((doc) async {
+              Post? p = Post.fromSnap(doc);
+              if (p != null) {
+                p.setId(doc.id);
+                if (profilePictures.keys.contains(p.authorUserName)) {
+                  p.setProfilePicture(profilePictures[p.authorUserName]);
+                } else {
+                  var list = await firebaseStorage
+                      .ref('files/${p.authorUserName}')
+                      .getData()
+                      .onError((error, stackTrace) => null);
+                  context
+                      .read<ProfilePictureProvider>()
+                      .addProfilePicture(p.authorUserName, list);
+                  p.setProfilePicture(list);
+                }
+                commentTiles[newId] = CommentTile(postId: newId,
+                    post: p,
                     uid: widget.uid,
-                    displayedText: 'Kommentare',
-                    appBarMode: AppBarMode.COMMENTS),
-                body: Column(children: [
-                  PostTile(
-                    post: widget.post,
-                    data: widget.data,
-                    uid: widget.uid,
-                    clickable: false,
-                  ),
-                  const Divider(height: 3),
-                  const SizedBox(height: 30),
-                  const Center(child: CircularProgressIndicator())
-                ])))
-        : SafeArea(
-            child: Scaffold(
-              appBar: MyAppbar(
-                deletePosts: (List<Post> value) async {
-                  setState(() {
-                    isLoading = true;
-                  });
+                    parentId: widget.post.id,
+                    userOwnParent: widget.post.authorUserName == context
+                        .read<UserProvider>()
+                        .user
+                        .username);
 
-                  setState(() {
-                    if (value.contains(widget.post)) {
-                    } else {
-                      for (Post p in value) {
-                        commentIdList.remove(p.id);
-                      }
-                      commentsVal -= value.length;
-                    }
-                    isLoading = false;
-                  });
-                },
-
-                uid: widget.uid,
-                displayedText: 'Kommentare',
-                appBarMode: AppBarMode.COMMENTS,
-              ),
-              body: Column(
-                children: [
-                  PostTile(
-                      post: widget.post,
-                      data: widget.data,
-                      uid: widget.uid,
-                      clickable: false),
-                  const Divider(height: 3),
-                  Expanded(
-                      child: ListView.separated(
-                          physics: const BouncingScrollPhysics(),
-                          shrinkWrap: true,
-                          itemCount: commentIdList.length,
-                          separatorBuilder: (BuildContext context, int index) =>
-                              const Divider(height: 2),
-                          itemBuilder: (context, index) {
-                            return Material(
-                                      child: CommentTile(
-                                    postId: commentIdList[index],
-                                    uid: widget.uid,
-                                    parentId: widget.post.id,
-                                    userOwnParent: widget.post.authorUserName == context.read<UserProvider>().user.username
-                                  ));
-                          })),
-                  const Divider(thickness: 1, height: 1),
-                  MessageFormField(
-                      postId: widget.post.id,
-                      onPostSend: (bool value) async {
-                        await fetchPosts();
-                        setState(() {});
-                      })
-                ],
-              ),
-            ),
-          );
+                setState(() {
+                });
+              } else {
+                deleteNonExistingPost(newId);
+              }
+            });
+          }
+        }
+      }
+    });
   }
+    bool selected = false;
+    bool showCommentsofComments = false;
 
-  Widget HideComments() => GestureDetector(
-        onTap: () {
-          setState(() {
-            showCommentsofComments = false;
-          });
-        },
-        child: ListTile(
-          dense: true,
-          title: Row(
+    @override
+    Widget build(BuildContext context) {
+      List<CommentTile> list = [];
+      if(!isLoading){
+        list = commentTiles.values.toList();
+
+        list.sort((p1, p2) {
+          int l1 = p1.post.likeVal;
+          int l2 = p2.post.likeVal;
+
+          return l2.compareTo(l1);
+        });
+      }
+      return isLoading
+          ? SafeArea(
+          child: Scaffold(
+              appBar: MyAppbar(
+                  deletePosts: (List<Post> value) {
+                    setState(() {});
+                  },
+                  uid: widget.uid,
+                  displayedText: 'Kommentare',
+                  appBarMode: AppBarMode.COMMENTS),
+              body: Column(children: [
+                PostTile(
+                  post: widget.post,
+                  data: widget.data,
+                  uid: widget.uid,
+                  clickable: false,
+                ),
+                const Divider(height: 3),
+                const SizedBox(height: 30),
+                const Center(child: CircularProgressIndicator())
+              ])))
+          : SafeArea(
+        child: Scaffold(
+          appBar: MyAppbar(
+            deletePosts: (List<Post> value) async {
+              setState(() {
+                isLoading = true;
+              });
+
+              setState(() {
+                if (value.contains(widget.post)) {} else {
+                  for (Post p in value) {
+                    commentTiles.remove(p.id);
+                  }
+                  commentsVal -= value.length;
+                }
+                isLoading = false;
+              });
+            },
+
+            uid: widget.uid,
+            displayedText: 'Kommentare',
+            appBarMode: AppBarMode.COMMENTS,
+          ),
+          body: Column(
             children: [
-              const SizedBox(width: 47),
-              const Expanded(child: Divider()),
-              Container(width: 5),
-              const Text("Antworten ausblenden",
-                  style: TextStyle(color: Colors.blue, fontSize: 14)),
-              Container(width: 5),
-              const Expanded(child: Divider()),
+              PostTile(
+                  post: widget.post,
+                  data: widget.data,
+                  uid: widget.uid,
+                  clickable: false),
+              const Divider(height: 3),
+              Expanded(
+                  child: ListView.separated(
+                      physics: const BouncingScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: list.length,
+                      separatorBuilder: (BuildContext context, int index) =>
+                      const Divider(height: 2),
+                      itemBuilder: (context, index) {
+
+                        return Material(
+                            child: list[index]);
+                      })
+              ),
+              const Divider(thickness: 1, height: 1),
+              MessageFormField(
+                  postId: widget.post.id,
+                  onPostSend: (bool value) async {
+                    await fetchPosts();
+                    setState(() {});
+                  })
             ],
           ),
         ),
       );
-}
+    }
+
+    Widget HideComments() =>
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              showCommentsofComments = false;
+            });
+          },
+          child: ListTile(
+            dense: true,
+            title: Row(
+              children: [
+                const SizedBox(width: 47),
+                const Expanded(child: Divider()),
+                Container(width: 5),
+                const Text("Antworten ausblenden",
+                    style: TextStyle(color: Colors.blue, fontSize: 14)),
+                Container(width: 5),
+                const Expanded(child: Divider()),
+              ],
+            ),
+          ),
+        );
+  }
+
 
 class MessageFormField extends StatefulWidget {
   const MessageFormField(

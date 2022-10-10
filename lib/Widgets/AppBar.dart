@@ -102,8 +102,14 @@ class _MyAppbarState extends State<MyAppbar> {
                             style: TextStyle(color: Colors.white));
                       }
                       dynamic data = snapshot.data!;
-
-                      return Text('${data['count']}',
+                      int val = data['count'];
+                      String count = '0';
+                      if(val > 99){
+                        count = '99+';
+                      } else {
+                        count = val.toString();
+                      }
+                      return Text(count,
                           style: const TextStyle(color: Colors.white));
                     }),
                 badgeColor: Colors.red,

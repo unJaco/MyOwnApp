@@ -19,20 +19,26 @@ class _EditDataPageState extends State<EditDataPage> {
   final bioController = TextEditingController();
   final nameController = TextEditingController();
 
+  bool allowed = true;
+
   @override
   void initState() {
     super.initState();
-    bioController.addListener(() {
-      setState(() {});
-    });
+    bioController.addListener(checkState);
     nameController.addListener(() {
       setState(() {});
     });
   }
 
+  void checkState(){
+    setState(() {
+      allowed = bioController.text.split('\n').length <= 2;
+      print(allowed);
+    });
+
+  }
   @override
   Widget build(BuildContext context) {
-    bool allowed = bioController.text.split('\n').length <= 2;
 
     return SafeArea(
       child: Scaffold(
@@ -54,7 +60,7 @@ class _EditDataPageState extends State<EditDataPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(25, 0, 25, 0),
-                child: BioTextField(allowed),
+                child: BioTextField(),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(25, 25, 25, 0),
@@ -119,11 +125,11 @@ class _EditDataPageState extends State<EditDataPage> {
     );
   }
 
-  StatefulWidget BioTextField(bool allowed) => TextFormField(
+  StatefulWidget BioTextField() => TextFormField(
         minLines: 1,
         maxLines: 3,
         textInputAction: TextInputAction.newline,
-        keyboardType: allowed ? TextInputType.multiline : TextInputType.text,
+        keyboardType: allowed ? TextInputType.multiline : TextInputType.phone,
         controller: bioController,
         textCapitalization: TextCapitalization.sentences,
         decoration: InputDecoration(

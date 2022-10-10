@@ -116,11 +116,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             newPassword = newpasswordController.text;
           });
 
-          var credential = EmailAuthProvider.credential(
-              email: _firebaseAuth.currentUser!.email!,
-              password: newpasswordController.text);
-
-          _firebaseAuth.currentUser!.reauthenticateWithCredential(credential);
 
           String? res = await context
               .read<AuthenticationService>()
